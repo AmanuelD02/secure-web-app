@@ -1,0 +1,35 @@
+{% extends 'base.html' %}
+
+{% block title %}Edit Feedback{% endblock %}
+
+{% block content %}
+  <div class="container">
+    <h2 class="text-center">Edit Feedback</h2>
+    <div class="row justify-content-center">
+      <div class="col-md-6">
+        <form method="POST" enctype="multipart/form-data">
+          {{ form.csrf_token }}
+          <div class="form-group">
+            <label for="name">Name</label>
+            <input type="text" class="form-control" id="name" name="name" value="{{ feedback.name }}" required>
+          </div>
+          <div class="form-group">
+            <label for="email">Email</label>
+            <input type="email" class="form-control" id="email" name="email" value="{{ feedback.email }}" required>
+          </div>
+          <div class="form-group">
+            <label for="comments">Comments</label>
+            <textarea class="form-control" id="comments" name="comments" rows="5" required>{{ feedback.comments }}</textarea>
+          </div>
+          <div class="form-group">
+            <label for="file">File (PDF only)</label>
+            <input type="file" class="form-control-file" id="file" name="file">
+          </div>
+          <div class="form-group">
+            <button type="submit" class="btn btn-primary">Update Feedback</button>
+          </div>
+        </form>
+      </div>
+    </div>
+  </div>
+{% endblock %}
