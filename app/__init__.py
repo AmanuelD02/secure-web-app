@@ -35,9 +35,15 @@ def create_app():
     csrf.init_app(app)
     
     # Create the log directory if it doesn't exist
-    log_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'logs')
+    log_dir = app.config.get('LOG_DIR', 'logs')
+        
     if not os.path.exists(log_dir):
         os.makedirs(log_dir)
+
+    # Create the file upload directory if it doesn't exist
+    upload_dir = app.config.get('UPLOAD_FOLDER', 'uploads')
+    if not os.path.exists(upload_dir):
+        os.makedirs(upload_dir)
 
     # Configure the logging
     log_level = app.config.get('LOG_LEVEL', 'DEBUG')
@@ -68,7 +74,8 @@ def create_app():
     @app.before_request
     def before_request():
         if current_user.is_authenticated:
-            current_user.update_last_activity()
+            pass
+            # current_user.update_last_activity()
 
 
     return app

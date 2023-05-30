@@ -1,8 +1,9 @@
 import os
 from functools import wraps
 import clamd  
+import uuid
 
-from flask import current_app as app
+from flask import current_app as app, request, send_from_directory
 from flask import abort, Blueprint, render_template, redirect, url_for, flash
 from flask import Markup
 from flask_limiter.util import get_remote_address
@@ -17,7 +18,7 @@ from app.models import User, Feedback
 
 @login_manager.user_loader
 def load_user(user_id):
-    return User.get(user_id)
+    return User.get_user(user_id)
 
 
 # Initialize ClamAV scanner
@@ -57,7 +58,7 @@ def generate_verification_token(username):
     with app.app_context():
         serializer = URLSafeTimedSerializer(app.config['SECRET_KEY'])
 
-        token = serializer.dumps(username, salt='email-verification', expires_in=3600)  # Token expires after 1 hour (3600 seconds)
+        token = serializer.dumps(username, salt='email-verification')  # Token expires after 1 hour (3600 seconds)
         return token
 
 # Function to send a verification email
@@ -70,7 +71,7 @@ def send_verification_email(email, verification_link):
 
 
 
-main = Blueprint('main', __name__,url_prefix='/main')
+main = Blueprint('main', __name__,url_prefix='/')
 
 
 
@@ -78,13 +79,14 @@ main = Blueprint('main', __name__,url_prefix='/main')
 
 @main.route('/')
 def index():
-    print("hello there")
     return render_template('index.html')
 
 @main.route('/register', methods=['GET', 'POST'])
 @limiter.limit("5/minute")  # Limit to 5 requests per minute
 def register():
     form = RegisterForm()
+    if request.method == 'GET':
+        return render_template('register.html', form=form)
 
     if form.validate_on_submit():
         username = form.username.data
@@ -94,18 +96,19 @@ def register():
         # Check if user already exists
         if User.query.filter_by(username=username).first():
             flash('Username already taken. Please choose a different username.', 'danger')
-            logger.danger('Username already taken: {}'.format(username))
+            logger.error('Username already taken: {}'.format(username))
             return redirect(url_for('main.register'))
 
         # Check if email is  already taken
         if User.query.filter_by(email=email).first():
             flash('Email already taken. Please choose a different email.', 'danger')
-            logger.danger('Email already taken: {}'.format(email))
+            logger.error('Email already taken: {}'.format(email))
             return redirect(url_for('main.register'))
 
 
         # Create a new user
-        user = User(username=username, email=email, password=password)
+        user = User(username=username, email=email)
+        user.set_password(password)
         user.save()
 
         logger.info('User registered: {}'.format(username))
@@ -117,13 +120,18 @@ def register():
 
         flash('Registration successful. Please check your email to verify your account.', 'success')
         return redirect(url_for('main.login'))
-
+    else:
+        errors = form.errors
+        for key, val in errors.items():
+            for err in val:
+                flash(err, 'danger')
+        # flash(form.errors, 'danger')
     return render_template('register.html', form=form)
 
 
 
 @main.route('/verify/<token>')
-def verify(token):
+def verify_email(token):
     if current_user.is_authenticated:
         return redirect(url_for('main.dashboard'))
     try:
@@ -158,7 +166,8 @@ def login():
     form = LoginForm()
     if form.validate_on_submit():
         user = User.query.filter_by(username=form.username.data).first()
-        if user and user.is_verified and user.check_password(form.password.data):
+        # if user and user.is_verified and user.check_password(form.password.data):
+        if user and user.check_password(form.password.data):
             login_user(user)
             flash('Login successful!', 'success')
             
@@ -182,7 +191,8 @@ def logout():
 @login_required
 def dashboard():
     feedbacks = Feedback.query.filter_by(user_id=current_user.id).all()
-    return render_template('dashboard.html', feedbacks=feedbacks)
+    form = FeedbackForm() 
+    return render_template('dashboard.html', feedbacks=feedbacks, form = form)
 
 @main.route('/admin')
 @login_required
@@ -212,10 +222,10 @@ def toggle_user_status(user_id):
 
 # Route for submitting feedback
 @main.route('/feedback', methods=['GET', 'POST'])
-@limiter.limit("2/minute")  # Rate limit: maximum 2 requests per minute
+@limiter.limit("2000/minute")  # Rate limit: maximum 2 requests per minute
 @login_required
 def feedback():
-    if not current_user.is_active or not current_user.email_verified:
+    if not current_user.is_active or not current_user.is_verified:
         abort(403)  # User is not allowed to submit feedback
 
     form = FeedbackForm()
@@ -241,18 +251,19 @@ def feedback():
 
             # Save the file
             with app.app_context():
-                filename = secure_filename(file.filename)
+                filename = uuid.uuid4().hex + '.pdf'
+                real_filename = secure_filename(file.filename)
                 file.save(os.path.join(app.config['UPLOAD_FOLDER'], filename))
         else:
             filename = None
+            real_filename = None
 
         # Create a new Feedback instance
         feedback = Feedback(
-            name=form.name.data,
-            email=form.email.data,
-            comments=form.comments.data,
+            comment=form.comment.data,
             file=filename,
-            user=current_user
+            real_file_name=real_filename,
+            user_id=current_user.id
         )
         feedback.save()
         logger.info('New feedback submitted by user: {}'.format(current_user.username))
@@ -273,7 +284,10 @@ def edit_feedback(feedback_id):
     if feedback.user != current_user:
         abort(403)  # User is not allowed to edit other users' feedbacks
 
-    form = FeedbackForm(obj=feedback)
+    form = FeedbackForm()   
+    if request.method == 'GET':
+        return render_template('edit_feedback.html', form=form, feedback=feedback)
+
     if form.validate_on_submit():
         # Handle file upload
         file = form.file.data
@@ -302,27 +316,43 @@ def edit_feedback(feedback_id):
                     if os.path.exists(old_file_path):
                         os.remove(old_file_path)
 
-                # Save the new file
-                filename = secure_filename(file.filename)
-                file.save(os.path.join(app.config['UPLOAD_FOLDER'], filename))
+            # Save the new file
+            filename = uuid.uuid4().hex + '.pdf'
+            real_filename = secure_filename(file.filename)
+            file.save(os.path.join(app.config['UPLOAD_FOLDER'], filename))
         else:
             filename = feedback.file
+            real_filename = feedback.real_file_name
 
-        # Update the feedback
-        feedback.name = form.name.data
-        feedback.email = form.email.data
-        feedback.comments = form.comments.data
+        feedback.comment = form.comment.data
         feedback.file = filename
+        feedback.real_file_name = real_filename
         feedback.save()
 
         logger.info('Feedback edited by user: {}'.format(current_user.username))
         flash('Feedback updated successfully.', 'success')
         return redirect(url_for('main.dashboard'))
-
+    else:
+        errors = form.errors
+        for key, val in errors.items():
+            for err in val:
+                flash(err, 'danger')
     return render_template('edit_feedback.html', form=form, feedback=feedback)
 
 
-@main.route('/feedback/delete/<int:feedback_id>', methods=['POST'])
+
+
+# Route to serve the uploaded files
+@main.route('/uploads/<filename>', methods=['GET'])
+def files_uploaded(filename):
+
+    with app.app_context():
+        uploads_dir = app.config.get('UPLOAD_FOLDER', 'uploads')# Path to the directory where the files are stored
+        return send_from_directory(uploads_dir, filename)
+
+
+
+@main.route('/feedback/delete/<int:feedback_id>', methods=['POST', ])
 @login_required
 def delete_feedback(feedback_id):
     feedback = Feedback.query.get_or_404(feedback_id)

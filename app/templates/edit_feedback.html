@@ -9,22 +9,23 @@
       <div class="col-md-6">
         <form method="POST" enctype="multipart/form-data">
           {{ form.csrf_token }}
+         
           <div class="form-group">
-            <label for="name">Name</label>
-            <input type="text" class="form-control" id="name" name="name" value="{{ feedback.name }}" required>
-          </div>
-          <div class="form-group">
-            <label for="email">Email</label>
-            <input type="email" class="form-control" id="email" name="email" value="{{ feedback.email }}" required>
-          </div>
-          <div class="form-group">
-            <label for="comments">Comments</label>
-            <textarea class="form-control" id="comments" name="comments" rows="5" required>{{ feedback.comments }}</textarea>
+            <label for="comments">Comment</label>
+            <textarea class="form-control" id="comment" name="comment" rows="5" required>{{ feedback.comment }}</textarea>
           </div>
           <div class="form-group">
             <label for="file">File (PDF only)</label>
-            <input type="file" class="form-control-file" id="file" name="file">
-          </div>
+            <div>
+              {% if feedback.file %}
+                <td><a href="{{ url_for('main.files_uploaded', filename=feedback.file) }}" target="_blank">{{ feedback.real_file_name }}</a></td>
+              {% else %}
+                <td>No file uploaded</td>
+              
+              {% endif %}
+              <input type="file" class="form-control-file" id="file" name="file">
+            </div>
+                   </div>
           <div class="form-group">
             <button type="submit" class="btn btn-primary">Update Feedback</button>
           </div>

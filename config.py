@@ -24,6 +24,10 @@ class Config:
     # reCAPTCHA configuration
     RECAPTCHA_SITE_KEY = 'your-recaptcha-site-key'
     RECAPTCHA_SECRET_KEY = 'your-recaptcha-secret-key'
+
+    LOG_DIR = os.getenv('LOG_DIR')
+    LOG_LEVEL = os.getenv('LOG_LEVEL')
+    UPLOAD_FOLDER = os.getenv('UPLOAD_FOLDER')
 class DevelopmentConfig(Config):
     DEBUG = True
 

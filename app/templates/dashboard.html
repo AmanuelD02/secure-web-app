@@ -3,41 +3,23 @@
 {% block title %}Dashboard{% endblock %}
 
 {% block content %}
-  <nav class="navbar navbar-expand-md navbar-dark bg-primary">
-    <div class="container">
-      <a class="navbar-brand" href="#">MyApp</a>
-      <button class="navbar-toggler" type="button" data-toggle="collapse" data-target="#navbarNav"
-        aria-controls="navbarNav" aria-expanded="false" aria-label="Toggle navigation">
-        <span class="navbar-toggler-icon"></span>
-      </button>
-      <div class="collapse navbar-collapse" id="navbarNav">
-        <ul class="navbar-nav ml-auto">
-          <li class="nav-item">
-            <a class="nav-link" href="{{ url_for('main.dashboard') }}">Dashboard</a>
-          </li>
-          {% if current_user.is_admin %}
-          <li class="nav-item">
-            <a class="nav-link" href="{{ url_for('main.admin_dashboard') }}">Admin Dashboard</a>
-          </li>
-          {% endif %}
-          <li class="nav-item">
-            <a class="nav-link" href="{{ url_for('main.logout') }}">Logout</a>
-          </li>
-        </ul>
-      </div>
-    </div>
-  </nav>
 
   <div class="container mt-4">
     <h2>Welcome, {{ current_user.username }}</h2>
-    <h3>Your Feedbacks</h3>
+      <!-- Plus Icon Button -->
+  <div class="container mt-4">
+    <button type="button" class="btn btn-primary" data-toggle="modal" data-target="#feedbackModal">
+      <i class="fas fa-plus"></i> Add Feedback
+    </button>
+  </div>
+  <h3>Your Feedbacks</h3>
+
     <table class="table table-striped">
       <thead>
         <tr>
           <th>Feedback ID</th>
-          <th>Name</th>
-          <th>Email</th>
           <th>Comments</th>
+          <th>File</th>
           <th>Action</th>
         </tr>
       </thead>
@@ -45,12 +27,22 @@
         {% for feedback in current_user.feedbacks %}
         <tr>
           <td>{{ feedback.id }}</td>
-          <td>{{ feedback.name }}</td>
-          <td>{{ feedback.email }}</td>
-          <td>{{ feedback.comments }}</td>
+          <td>{{ feedback.comment }}</td>
+          {% if feedback.file %}
+
+          <td><a href="{{ url_for('main.files_uploaded', filename=feedback.file) }}" target="_blank">{{ feedback.real_file_name }}</a></td>
+          {% else %}
+          <td>No file uploaded</td>
+          {% endif %}
           <td>
             <a href="{{ url_for('main.edit_feedback', feedback_id=feedback.id) }}" class="btn btn-primary btn-sm">Edit</a>
-            <a href="{{ url_for('main.delete_feedback', feedback_id=feedback.id) }}" class="btn btn-danger btn-sm">Delete</a>
+            
+            <form action="{{ url_for('main.delete_feedback', feedback_id=feedback.id) }}"  method="POST" >
+              {{ form.hidden_tag() }}
+
+            <button class="btn btn-danger btn-sm" type="submit">Delete</button>
+          </form>
+         
           </td>
         </tr>
         {% endfor %}
@@ -58,43 +50,35 @@
     </table>
   </div>
 
-  {% if current_user.is_admin %}
-  <div class="container mt-4">
-    <h3>Toggle User Status</h3>
-    <table class="table table-striped">
-      <thead>
-        <tr>
-          <th>User ID</th>
-          <th>Username</th>
-          <th>Email</th>
-          <th>Status</th>
-          <th>Action</th>
-        </tr>
-      </thead>
-      <tbody>
-        {% for user in users %}
-        <tr>
-          <td>{{ user.id }}</td>
-          <td>{{ user.username }}</td>
-          <td>{{ user.email }}</td>
-          <td>
-            {% if user.disabled %}
-              Disabled
-            {% else %}
-              Enabled
-            {% endif %}
-          </td>
-          <td>
-            {% if user.disabled %}
-              <a href="{{ url_for('main.toggle_user_status', user_id=user.id) }}" class="btn btn-success btn-sm">Enable</a>
-            {% else %}
-              <a href="{{ url_for('main.toggle_user_status', user_id=user.id) }}" class="btn btn-danger btn-sm">Disable</a>
-            {% endif %}
-          </td>
-        </tr>
-        {% endfor %}
-      </tbody>
-    </table>
+
+
+  <!-- Feedback Modal -->
+  <div class="modal fade" id="feedbackModal" tabindex="-1" role="dialog" aria-labelledby="feedbackModalLabel" aria-hidden="true">
+    <div class="modal-dialog" role="document">
+      <div class="modal-content">
+        <div class="modal-header">
+          <h5 class="modal-title" id="feedbackModalLabel">Add Feedback</h5>
+          <button type="button" class="close" data-dismiss="modal" aria-label="Close">
+            <span aria-hidden="true">&times;</span>
+          </button>
+        </div>
+        <div class="modal-body">
+          <form method="POST" action="{{ url_for('main.feedback') }}" enctype="multipart/form-data">
+            {{ form.hidden_tag() }}
+            <div class="form-group">
+              {{ form.comment.label }} {{ form.comment(class="form-control") }}
+            </div>
+            <div class="form-group">
+              {{ form.file.label }} {{ form.file(class="form-control-file") }}
+            </div>
+            <div class="modal-footer">
+              <button type="button" class="btn btn-secondary" data-dismiss="modal">Close</button>
+              {{ form.submit(class="btn btn-primary") }}
+            </div>
+          </form>
+        </div>
+      </div>
+    </div>
   </div>
-  {% endif %}
+
 {% endblock %}
