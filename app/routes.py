@@ -53,7 +53,7 @@ def admin_required(f):
     def decorated_function(*args, **kwargs):
         if not current_user.is_admin:
             flash('You are not authorized to access this page.', 'danger')
-            return redirect(url_for('main.main.index'))
+            return render_template('error.html', error_code=500), 500
         return f(*args, **kwargs)
     return decorated_function
 

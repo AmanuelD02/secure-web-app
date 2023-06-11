@@ -67,7 +67,23 @@ def create_app():
 
     @app.errorhandler(404)
     def not_found_error(error):
-        return render_template('404.html'), 404
+        return render_template('error.html',error_code=404), 404
+
+
+    @app.errorhandler(401)
+    def not_found_error(error):
+        return render_template('error.html',error_code=401), 401
+
+
+    @app.errorhandler(403)
+    def not_found_error(error):
+        return render_template('error.html',error_code=403), 403
+
+    @app.errorhandler(500)
+    def not_found_error(error):
+        return render_template('error.html',error_code=500), 500
+
+
 
     @app.before_request
     def before_request():
