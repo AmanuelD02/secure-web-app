@@ -21,6 +21,8 @@
       <thead>
         <tr>
           <th>Feedback ID</th>
+          <th>Name</th>
+          <th>Email</th>
           <th>Comments</th>
           <th>File</th>
           <th>Action</th>
@@ -30,6 +32,8 @@
         {% for feedback in feedbacks %}
         <tr>
           <td>{{ feedback.id }}</td>
+          <td>{{ feedback.user.name }}</td>
+          <td>{{ feedback.user.email }}</td>
           <td>{{ feedback.comment }}</td>
           {% if feedback.file %}
 

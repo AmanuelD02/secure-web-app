@@ -1,6 +1,7 @@
 from flask_wtf import FlaskForm, RecaptchaField
 from wtforms import StringField, PasswordField, TextAreaField, FileField, SubmitField, IntegerField
 from wtforms.validators import DataRequired, Email, EqualTo, Length
+from flask_wtf.file import FileAllowed
 
 class LoginForm(FlaskForm):
     username = StringField('Username', validators=[DataRequired()])
@@ -35,9 +36,16 @@ class RegisterForm(FlaskForm):
 
 
 class FeedbackForm(FlaskForm):
-    comment = TextAreaField('Comment', validators=[DataRequired()])
-    file = FileField('Optional File Upload. (Only PDF less than 5MB is accepted.)')
+    comment = TextAreaField('Comment', validators = [DataRequired()])
+    file = FileField(label = 'Optional File Upload. (Only PDF less than 5MB is accepted.)', validators = [FileAllowed(['pdf'], 'Only PDF files are accepted.')])
     submit = SubmitField('Comment')
+    
+    
+    def validate_file(self, file):
+        max_size = 5 * 1024 * 1024  # 5 MB
+        if file.data and file.data.content_length > max_size:
+            raise ValidationError('File size exceeds the allowed limit.')
+
 
 
 class UserToggleForm(FlaskForm):

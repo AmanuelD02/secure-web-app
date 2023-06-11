@@ -46,3 +46,16 @@ class Feedback(db.Model):
     def save(self):
         db.session.add(self)
         db.session.commit()
+
+
+
+class Honeypot(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    ip = db.Column(db.String(50), nullable=False)
+    user_agent = db.Column(db.String(250), nullable=False)
+    headers = db.Column(db.Text, nullable=False)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    
+    def save(self):
+        db.session.add(self)
+        db.session.commit()

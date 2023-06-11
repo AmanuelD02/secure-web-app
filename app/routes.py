@@ -1,3 +1,4 @@
+import copy
 import os
 from functools import wraps
 import secrets
@@ -15,7 +16,7 @@ from werkzeug.utils import secure_filename
 
 from app import db, limiter, logger, mail, login_manager
 from app.forms import RegisterForm, LoginForm, FeedbackForm, UserToggleForm
-from app.models import User, Feedback
+from app.models import Honeypot, User, Feedback
 
 
 
@@ -204,21 +205,24 @@ def logout():
 @main.route('/dashboard')
 @login_required
 def dashboard():
+    
     if current_user.is_admin:
         feedbacks = Feedback.query.all()
     else:
+        
         feedbacks = Feedback.query.filter_by(user_id=current_user.id).all()
-    
+
     form = FeedbackForm() 
     return render_template('dashboard.html', feedbacks=feedbacks, form = form)
 
-@main.route('/admin')
+@main.route('/secret')
 @login_required
 @admin_required
 def admin():
     members = User.query.all()
     form = UserToggleForm()
     return render_template('admin.html', members=members, form = form)
+
 
 # Route for enabling/disabling user accounts (admin only)
 @main.route('/admin/user/<int:user_id>/toggle_status', methods=['POST'])
@@ -252,10 +256,6 @@ def feedback():
         # Handle file upload
         file = form.file.data
         if file:
-            # Validate file type
-            if file.content_type != 'application/pdf':
-                flash('Only PDF files are allowed.', 'danger')
-                return redirect(url_for('main.dashboard'))
 
             # Scan file for viruses
             # res = scan_file(file)
@@ -263,17 +263,13 @@ def feedback():
             #     flash('File contains viruses or malicious content.', 'danger')
             #     return redirect(url_for('main.dashboard'))
 
-            # Validate file size
-            max_file_size = 5 * 1024 * 1024  # 5MB
-            if len(file.read()) > max_file_size:
-                flash('File size should be less than 5MB.', 'danger')
-                return redirect(url_for('main.dashboard'))
+
 
             # Save the file
             with app.app_context():
                 filename = uuid.uuid4().hex + '.pdf'
                 real_filename = secure_filename(file.filename)
-                file.save(os.path.join(app.config['UPLOAD_FOLDER'], filename))
+                file.save(os.path.join(app.config['UPLOAD_FOLDER'], filename),buffer_size=None)
         else:
             filename = None
             real_filename = None
@@ -290,8 +286,13 @@ def feedback():
         logger.info('New feedback submitted by user: {}'.format(current_user.username))
         flash('Feedback submitted successfully.', 'success')
         return redirect(url_for('main.dashboard'))
+    if form.errors:
+        errors = form.errors
+        for key, val in errors.items():
+            for err in val:
+                flash(err, 'danger')
+    return redirect(url_for('main.dashboard'))
 
-    return render_template('feedback.html', form=form)
 
 
 
@@ -313,21 +314,13 @@ def edit_feedback(feedback_id):
         # Handle file upload
         file = form.file.data
         if file:
-            # Validate file type
-            if file.content_type != 'application/pdf':
-                flash('Only PDF files are allowed.', 'danger')
-                return redirect(url_for('main.edit_feedback', feedback_id=feedback_id))
 
             # Scan file for viruses
             # if scan_file(file):
             #     flash('File contains viruses or malicious content.', 'danger')
             #     return redirect(url_for('main.edit_feedback', feedback_id=feedback_id))
             
-            # Validate file size
-            max_file_size = 5 * 1024 * 1024  # 5MB
-            if len(file.read()) > max_file_size:
-                flash('File size should be less than 5MB.', 'danger')
-                return redirect(url_for('main.edit_feedback', feedback_id=feedback_id))
+
 
 
             # Delete the old file, if any
@@ -379,12 +372,15 @@ def delete_feedback(feedback_id):
     feedback = Feedback.query.get_or_404(feedback_id)
 
     # Check if the logged-in user owns the feedback
-    if feedback.user_id != current_user.id:
+    if feedback.user_id != current_user.id and not current_user.is_admin:
         flash('You are not authorized to delete this feedback.', 'danger')
         return redirect(url_for('main.dashboard'))
 
     try:
         db.session.delete(feedback)
+        if feedback.file:
+            os.remove(os.path.join(app.config['UPLOAD_FOLDER'], feedback.file))
+
         db.session.commit()
         flash('Feedback deleted successfully.', 'success')
         logger.info(f'Feedback (ID: {feedback_id}) deleted by user: {current_user.username}')
@@ -396,3 +392,42 @@ def delete_feedback(feedback_id):
         db.session.close()
 
     return redirect(url_for('main.dashboard'))
+
+
+
+@main.route('/admin_login', methods=['POST', 'GET' ])
+@limiter.limit("5/minute")
+def honeypot():
+    form = LoginForm()
+    if form.validate_on_submit():
+        flash('Password Incorrect!', 'warning')
+        logger.info('Honeypot triggered')
+
+         # Get the IP address of the request sender
+        ip_address = request.remote_addr
+        # Get the user agent (browser information)
+        user_agent = request.user_agent.string
+        # Get the request headers
+        headers = request.headers
+
+        # Log the information and save to DB
+        logger.info(f'IP Address: {ip_address}')
+        logger.info(f'User Agent: {user_agent}')
+        logger.info(f'Headers: {headers}')
+
+        # Save the information to DB
+        honeypot = Honeypot(
+            ip=ip_address,
+            user_agent=user_agent,
+            headers=str(headers)
+        )
+        honeypot.save()
+    return render_template('login.html', form=form)
+
+
+@main.route('/honeypots', methods=['GET', ])
+@login_required
+@admin_required
+def view_honeypot():
+    honeypots = Honeypot.query.all()
+    return render_template('honeypot.html', honeypots=honeypots)

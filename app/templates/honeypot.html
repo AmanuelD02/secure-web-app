@@ -1,0 +1,52 @@
+{% extends 'base.html' %}
+
+{% block content %}
+  <h1>Honeypot List</h1>
+  
+  <table class="table table-striped">
+    <thead>
+      <tr>
+        <th>ID</th>
+        <th>IP</th>
+        <th>User Agent</th>
+        <th>Headers</th>
+        <th>Attempted at At</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for item in honeypots %}
+        <tr>
+          <td>{{ item.id }}</td>
+          <td>{{ item.ip }}</td>
+          <td>{{ item.user_agent }}</td>
+          <td>
+            {% if item.headers|length > 50 %}
+              <span class="truncated-headers"  title="{{ item.headers }}">{{ item.headers[:50] }}...</span>
+            {% else %}
+              {{ item.headers }}
+            {% endif %}
+          </td>
+          <td>{{ item.created_at.strftime('%Y-%m-%d %H:%M:%S') }}</td>
+        </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+
+  <script>
+    document.querySelectorAll('.truncated-headers').forEach(function(element) {
+      element.addEventListener('click', function() {
+        var fullHeaders = this.getAttribute('title');
+        var isExpanded = this.getAttribute('data-expanded') === 'true';
+  
+        if (isExpanded) {
+          this.innerHTML = fullHeaders.substring(0, 50) + '...';
+          this.setAttribute('data-expanded', 'false');
+        } else {
+          this.innerHTML = fullHeaders;
+          this.setAttribute('data-expanded', 'true');
+        }
+      });
+    });
+  </script>
+  
+{% endblock %}
