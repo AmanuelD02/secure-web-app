@@ -23,8 +23,8 @@ class Config:
     RATELIMIT_HEADERS_ENABLED = True
 
     # reCAPTCHA configuration
-    RECAPTCHA_SITE_KEY = 'your-recaptcha-site-key'
-    RECAPTCHA_SECRET_KEY = 'your-recaptcha-secret-key'
+    RECAPTCHA_PUBLIC_KEY = os.getenv('RECAPTCHA_PUBLIC_KEY')
+    RECAPTCHA_SECRET_KEY = os.getenv('RECAPTCHA_SECRET_KEY')
 
     LOG_DIR = os.getenv('LOG_DIR')
     LOG_LEVEL = os.getenv('LOG_LEVEL')

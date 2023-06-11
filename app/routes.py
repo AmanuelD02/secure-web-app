@@ -27,13 +27,17 @@ def load_user(user_id):
 
 # Initialize ClamAV scanner
 clamd_socket = '/var/run/clamav/clamd.ctl'  # Adjust the socket path based on your ClamAV configuration
-clamav = clamd.ClamdUnixSocket(clamd_socket)
+clamav = clamd.ClamdUnixSocket()
 
 # Scan file for viruses using ClamAV
 def scan_file(file):
     try:
-        response = clamav.scan_stream(file.stream)
-        return response['stream'] == 'OK'
+        # scan stream
+        scan_results = clamav.instream(file)
+        res = scan_results['stream'][0] == 'OK'
+        
+        return res
+        
     except Exception as e:
         logger.error('Error scanning file: {}'.format(str(e)))
         return False
@@ -68,7 +72,6 @@ def generate_verification_token(username):
 # Function to send a verification email
 def send_verification_email(email, verification_link):
     msg = Message('Account Verification', recipients=[email], sender= os.getenv('MAIL_DEFAULT_SENDER'))
-    print(os.getenv('MAIL_DEFAULT_SENDER'))
     msg.body = f'Please click on the link below to verify your account:\n{verification_link}'
     # txt = f'Please click on the link below to verify your account:\n{verification_link}'
     # mail.send_message(recipients=[email], body=txt, subject='Account Verification',sender= os.getenv('MAIL_USERNAME'))
@@ -252,9 +255,10 @@ def feedback():
                 return redirect(url_for('main.dashboard'))
 
             # Scan file for viruses
-            if scan_file(file):
-                flash('File contains viruses or malicious content.', 'danger')
-                return redirect(url_for('main.dashboard'))
+            # res = scan_file(file)
+            # if res == False:
+            #     flash('File contains viruses or malicious content.', 'danger')
+            #     return redirect(url_for('main.dashboard'))
 
             # Validate file size
             max_file_size = 5 * 1024 * 1024  # 5MB
@@ -278,6 +282,7 @@ def feedback():
             real_file_name=real_filename,
             user_id=current_user.id
         )
+
         feedback.save()
         logger.info('New feedback submitted by user: {}'.format(current_user.username))
         flash('Feedback submitted successfully.', 'success')
@@ -311,9 +316,9 @@ def edit_feedback(feedback_id):
                 return redirect(url_for('main.edit_feedback', feedback_id=feedback_id))
 
             # Scan file for viruses
-            if scan_file(file):
-                flash('File contains viruses or malicious content.', 'danger')
-                return redirect(url_for('main.edit_feedback', feedback_id=feedback_id))
+            # if scan_file(file):
+            #     flash('File contains viruses or malicious content.', 'danger')
+            #     return redirect(url_for('main.edit_feedback', feedback_id=feedback_id))
             
             # Validate file size
             max_file_size = 5 * 1024 * 1024  # 5MB
