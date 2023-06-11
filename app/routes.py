@@ -100,6 +100,7 @@ def register():
         username = form.username.data
         email = form.email.data
         password = form.password.data
+        name = form.name.data
 
         # Check if user already exists
         if User.query.filter_by(username=username).first():
@@ -119,7 +120,7 @@ def register():
         send_verification_email(email, verification_link)
 
         # Create a new user
-        user = User(username=username, email=email)
+        user = User(username=username, email=email, name = name)
         user.set_password(password)
         user.save()
 
@@ -174,9 +175,11 @@ def login():
     form = LoginForm()
     if form.validate_on_submit():
         user = User.query.filter_by(username=form.username.data).first()
-        # if user and user.check_password(form.password.data):
         if user and not user.is_verified:
             flash('Please Verify Email', 'warning')
+
+        if user and  user.is_blocked:
+            flash('You are Blocked by the admin of this site please contact Admin.', 'warning')
     
         elif user and user.check_password(form.password.data):
             login_user(user)
@@ -228,7 +231,7 @@ def toggle_user_status(user_id):
     if user == current_user:
         flash('Cannot disable your own account.', 'danger')
     else:
-        user.is_verified = not user.is_verified
+        user.is_blocked = not user.is_blocked
         user.save()
         logger.info('User status toggled by admin. User ID: {}, Status: {}'.format(user_id, user.is_active))
         flash('User account status updated.', 'success')

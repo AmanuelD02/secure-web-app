@@ -24,7 +24,7 @@ class Config:
 
     # reCAPTCHA configuration
     RECAPTCHA_PUBLIC_KEY = os.getenv('RECAPTCHA_PUBLIC_KEY')
-    RECAPTCHA_SECRET_KEY = os.getenv('RECAPTCHA_SECRET_KEY')
+    RECAPTCHA_PRIVATE_KEY = os.getenv('RECAPTCHA_PRIVATE_KEY')
 
     LOG_DIR = os.getenv('LOG_DIR')
     LOG_LEVEL = os.getenv('LOG_LEVEL')

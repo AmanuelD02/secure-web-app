@@ -1,8 +1,8 @@
-"""Initial migration
+"""Init
 
-Revision ID: 04f8a18e2e12
+Revision ID: 43c939c3d630
 Revises: 
-Create Date: 2023-05-27 21:38:28.619364
+Create Date: 2023-06-11 16:39:05.575118
 
 """
 from alembic import op
@@ -10,7 +10,7 @@ import sqlalchemy as sa
 
 
 # revision identifiers, used by Alembic.
-revision = '04f8a18e2e12'
+revision = '43c939c3d630'
 down_revision = None
 branch_labels = None
 depends_on = None
@@ -21,20 +21,23 @@ def upgrade():
     op.create_table('user',
     sa.Column('id', sa.Integer(), nullable=False),
     sa.Column('username', sa.String(length=50), nullable=False),
+    sa.Column('name', sa.String(length=50), nullable=False),
     sa.Column('email', sa.String(length=100), nullable=False),
     sa.Column('password', sa.String(length=100), nullable=False),
     sa.Column('is_verified', sa.Boolean(), nullable=True),
+    sa.Column('is_blocked', sa.Boolean(), nullable=True),
     sa.Column('registered_at', sa.DateTime(), nullable=True),
     sa.Column('is_admin', sa.Boolean(), nullable=True),
     sa.PrimaryKeyConstraint('id'),
     sa.UniqueConstraint('email'),
+    sa.UniqueConstraint('name'),
     sa.UniqueConstraint('username')
     )
     op.create_table('feedback',
     sa.Column('id', sa.Integer(), nullable=False),
-    sa.Column('name', sa.String(length=50), nullable=False),
-    sa.Column('email', sa.String(length=100), nullable=False),
     sa.Column('comment', sa.Text(), nullable=False),
+    sa.Column('real_file_name', sa.String(length=250), nullable=True),
+    sa.Column('file', sa.String(length=100), nullable=True),
     sa.Column('user_id', sa.Integer(), nullable=False),
     sa.ForeignKeyConstraint(['user_id'], ['user.id'], ),
     sa.PrimaryKeyConstraint('id')

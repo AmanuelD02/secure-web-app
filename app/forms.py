@@ -13,9 +13,12 @@ from wtforms.validators import DataRequired, Email, EqualTo, Length, ValidationE
 
 class RegisterForm(FlaskForm):
     username = StringField('Username', validators=[DataRequired(), Length(min=2, max=20)])
+    name = StringField('Name', validators=[DataRequired(), Length(min=2, max=20)])
     email = StringField('Email', validators=[DataRequired(), Email()])
     password = PasswordField('Password', validators=[DataRequired()])
     confirm_password = PasswordField('Confirm Password', validators=[DataRequired(), EqualTo('password')])
+    captcha = RecaptchaField()
+
     submit = SubmitField('Register')
 
     def validate_password(self, password):
