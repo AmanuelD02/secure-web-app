@@ -10,7 +10,7 @@
         <table class="table table-striped">
           <thead>
             <tr>
-              <th>User ID</th>
+              <th>User ID</th> 
               <th>Username</th>
               <th>Email</th>
               <th>Status</th>
@@ -18,24 +18,29 @@
             </tr>
           </thead>
           <tbody>
-            {% for user in users %}
+            {% for user in members %}
             <tr>
               <td>{{ user.id }}</td>
               <td>{{ user.username }}</td>
               <td>{{ user.email }}</td>
               <td>
-                {% if user.disabled %}
+                {% if not user.is_active %}
                   Disabled
                 {% else %}
                   Enabled
                 {% endif %}
               </td>
               <td>
-                {% if user.disabled %}
-                  <a href="{{ url_for('main.toggle_user_status', user_id=user.id) }}" class="btn btn-success">Enable</a>
+                <form method="POST" action="{{ url_for('main.toggle_user_status', user_id=user.id) }}">
+                  {{ form.hidden_tag() }}
+
+
+                {% if not user.is_verified %}
+                  <button class="btn btn-success" type="submit">Enable</button>
                 {% else %}
-                  <a href="{{ url_for('main.toggle_user_status', user_id=user.id) }}" class="btn btn-danger">Disable</a>
+                  <button class="btn btn-danger" type="submit">Disable</button>
                 {% endif %}
+              </form>
               </td>
             </tr>
             {% endfor %}

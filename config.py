@@ -10,12 +10,13 @@ class Config:
     SQLALCHEMY_DATABASE_URI = os.getenv('SQLALCHEMY_DATABASE_URI')
     SQLALCHEMY_TRACK_MODIFICATIONS = False
 
-    MAIL_SERVER = os.getenv('MAIL_SERVER')
-    MAIL_PORT = os.getenv('MAIL_PORT')
-    MAIL_USE_TLS = os.getenv('MAIL_USE_TLS')
-    MAIL_USERNAME = os.getenv('MAIL_USERNAME')
-    MAIL_PASSWORD = os.getenv('MAIL_PASSWORD')
-    MAIL_DEFAULT_SENDER = os.getenv('MAIL_DEFAULT_SENDER')
+    MAIL_SERVER='sandbox.smtp.mailtrap.io'
+    MAIL_PORT=2525
+    MAIL_USERNAME='05c58ad55dd8ff'
+    MAIL_DEFAULT_SENDER='05c58ad55dd8ff@mailtrap.io'
+    MAIL_PASSWORD='c23e86ce4d5509'
+    MAIL_USE_TLS=True
+    MAIL_USE_SSL=False
 
     # Limiter Configuration
     RATELIMIT_DEFAULT = "100 per day"

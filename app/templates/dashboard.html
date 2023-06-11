@@ -12,8 +12,11 @@
       <i class="fas fa-plus"></i> Add Feedback
     </button>
   </div>
+  {%if current_user.is_admin%}
+  <h3>Feedbacks</h3>
+  {%else%}
   <h3>Your Feedbacks</h3>
-
+  {%endif%}
     <table class="table table-striped">
       <thead>
         <tr>
@@ -24,7 +27,7 @@
         </tr>
       </thead>
       <tbody>
-        {% for feedback in current_user.feedbacks %}
+        {% for feedback in feedbacks %}
         <tr>
           <td>{{ feedback.id }}</td>
           <td>{{ feedback.comment }}</td>
@@ -34,8 +37,13 @@
           {% else %}
           <td>No file uploaded</td>
           {% endif %}
+
+
           <td>
+            {% if feedback.user_id == current_user.id %}
             <a href="{{ url_for('main.edit_feedback', feedback_id=feedback.id) }}" class="btn btn-primary btn-sm">Edit</a>
+
+            {%endif%}
             
             <form action="{{ url_for('main.delete_feedback', feedback_id=feedback.id) }}"  method="POST" >
               {{ form.hidden_tag() }}

@@ -16,7 +16,6 @@ from flask_wtf.csrf import CSRFProtect
 db = SQLAlchemy()
 login_manager = LoginManager()
 limiter = Limiter(key_func=get_remote_address)
-mail = Mail()
 migrate = Migrate()
 csrf = CSRFProtect()
 mail = Mail()
@@ -26,7 +25,7 @@ logger = logging.getLogger(__name__)
 def create_app():
     app = Flask(__name__, template_folder='templates', static_folder='static')
     app.config.from_object('config.Config')
-
+    print(app.config)
     # Initialize extensions
     db.init_app(app)
     login_manager.init_app(app)

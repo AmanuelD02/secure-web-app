@@ -1,5 +1,6 @@
 import os
 from functools import wraps
+import secrets
 import clamd  
 import uuid
 
@@ -13,8 +14,11 @@ from itsdangerous import BadSignature, SignatureExpired, URLSafeTimedSerializer
 from werkzeug.utils import secure_filename
 
 from app import db, limiter, logger, mail, login_manager
-from app.forms import RegisterForm, LoginForm, FeedbackForm
+from app.forms import RegisterForm, LoginForm, FeedbackForm, UserToggleForm
 from app.models import User, Feedback
+
+
+
 
 @login_manager.user_loader
 def load_user(user_id):
@@ -63,10 +67,12 @@ def generate_verification_token(username):
 
 # Function to send a verification email
 def send_verification_email(email, verification_link):
-    msg = Message('Account Verification', recipients=[email])
+    msg = Message('Account Verification', recipients=[email], sender= os.getenv('MAIL_DEFAULT_SENDER'))
+    print(os.getenv('MAIL_DEFAULT_SENDER'))
     msg.body = f'Please click on the link below to verify your account:\n{verification_link}'
+    # txt = f'Please click on the link below to verify your account:\n{verification_link}'
+    # mail.send_message(recipients=[email], body=txt, subject='Account Verification',sender= os.getenv('MAIL_USERNAME'))
     mail.send(msg)
-
 
 
 
@@ -82,7 +88,6 @@ def index():
     return render_template('index.html')
 
 @main.route('/register', methods=['GET', 'POST'])
-@limiter.limit("5/minute")  # Limit to 5 requests per minute
 def register():
     form = RegisterForm()
     if request.method == 'GET':
@@ -105,6 +110,10 @@ def register():
             logger.error('Email already taken: {}'.format(email))
             return redirect(url_for('main.register'))
 
+        # Send verification email
+        token = generate_verification_token(username)
+        verification_link = url_for('main.verify_email', token=token, _external=True)
+        send_verification_email(email, verification_link)
 
         # Create a new user
         user = User(username=username, email=email)
@@ -113,10 +122,6 @@ def register():
 
         logger.info('User registered: {}'.format(username))
 
-        # Send verification email
-        token = generate_verification_token(username)
-        verification_link = url_for('main.verify_email', token=token, _external=True)
-        send_verification_email(user.email, verification_link)
 
         flash('Registration successful. Please check your email to verify your account.', 'success')
         return redirect(url_for('main.login'))
@@ -141,7 +146,7 @@ def verify_email(token):
             username = serializer.loads(token, salt='email-verification', max_age=3600)  # Token expires after 1 hour (3600 seconds)
             user = User.query.filter_by(username=username).first()
             if user:
-                user.email_verified = True
+                user.is_verified = True
                 user.save()
                 logger.info('Email verified for user: {}'.format(username))
                 flash('Email verification successful. You can now log in.', 'success')
@@ -166,8 +171,11 @@ def login():
     form = LoginForm()
     if form.validate_on_submit():
         user = User.query.filter_by(username=form.username.data).first()
-        # if user and user.is_verified and user.check_password(form.password.data):
-        if user and user.check_password(form.password.data):
+        # if user and user.check_password(form.password.data):
+        if user and not user.is_verified:
+            flash('Please Verify Email', 'warning')
+    
+        elif user and user.check_password(form.password.data):
             login_user(user)
             flash('Login successful!', 'success')
             
@@ -190,7 +198,11 @@ def logout():
 @main.route('/dashboard')
 @login_required
 def dashboard():
-    feedbacks = Feedback.query.filter_by(user_id=current_user.id).all()
+    if current_user.is_admin:
+        feedbacks = Feedback.query.all()
+    else:
+        feedbacks = Feedback.query.filter_by(user_id=current_user.id).all()
+    
     form = FeedbackForm() 
     return render_template('dashboard.html', feedbacks=feedbacks, form = form)
 
@@ -199,7 +211,8 @@ def dashboard():
 @admin_required
 def admin():
     members = User.query.all()
-    return render_template('admin.html', members=members)
+    form = UserToggleForm()
+    return render_template('admin.html', members=members, form = form)
 
 # Route for enabling/disabling user accounts (admin only)
 @main.route('/admin/user/<int:user_id>/toggle_status', methods=['POST'])
@@ -212,12 +225,12 @@ def toggle_user_status(user_id):
     if user == current_user:
         flash('Cannot disable your own account.', 'danger')
     else:
-        user.is_active = not user.is_active
+        user.is_verified = not user.is_verified
         user.save()
         logger.info('User status toggled by admin. User ID: {}, Status: {}'.format(user_id, user.is_active))
         flash('User account status updated.', 'success')
 
-    return redirect(url_for('main.admin_dashboard'))  # Update the route name based on your admin dashboard route
+    return redirect(url_for('main.admin'))  # Update the route name based on your admin dashboard route
 
 
 # Route for submitting feedback
@@ -236,18 +249,18 @@ def feedback():
             # Validate file type
             if file.content_type != 'application/pdf':
                 flash('Only PDF files are allowed.', 'danger')
-                return redirect(url_for('main.feedback'))
+                return redirect(url_for('main.dashboard'))
 
             # Scan file for viruses
             if scan_file(file):
                 flash('File contains viruses or malicious content.', 'danger')
-                return redirect(url_for('main.feedback'))
+                return redirect(url_for('main.dashboard'))
 
             # Validate file size
             max_file_size = 5 * 1024 * 1024  # 5MB
             if len(file.read()) > max_file_size:
                 flash('File size should be less than 5MB.', 'danger')
-                return redirect(url_for('main.feedback'))
+                return redirect(url_for('main.dashboard'))
 
             # Save the file
             with app.app_context():
