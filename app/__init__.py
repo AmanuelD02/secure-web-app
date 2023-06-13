@@ -91,5 +91,11 @@ def create_app():
             pass
             # current_user.update_last_activity()
 
-
+    ### Add Security Headers
+    # This is for preventing clickjacking attacks
+    @app.after_request
+    def add_security_headers(r):
+        r.headers['X-Frame-Options'] = 'SAMEORIGIN'
+        return r
+    
     return app

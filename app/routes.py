@@ -135,8 +135,9 @@ def register():
         for key, val in errors.items():
             for err in val:
                 flash(err, 'danger')
+                
+        return redirect(url_for('main.register'))
         # flash(form.errors, 'danger')
-    return render_template('register.html', form=form)
 
 
 
@@ -175,20 +176,29 @@ def login():
     
     form = LoginForm()
     if form.validate_on_submit():
-        user = User.query.filter_by(username=form.username.data).first()
+        username = form.username.data
+        password = form.password.data
+
+        user = User.query.filter_by(username=username).first()
         if user and not user.is_verified:
             flash('Please Verify Email', 'warning')
 
         if user and  user.is_blocked:
             flash('You are Blocked by the admin of this site please contact Admin.', 'warning')
+            logger.error('User blocked: {}'.format(username))
     
-        elif user and user.check_password(form.password.data):
+        elif user and user.check_password(password):
             login_user(user)
+            
             flash('Login successful!', 'success')
+            logger.info('User logged in: {}'.format(username))
             
             return redirect(url_for('main.dashboard'))
         else:
             flash('Invalid username or password. Please try again!', 'warning')
+            logger.error('Invalid credentials entered for user: {}'.format(username))
+        return redirect(url_for('main.login'))
+    
     return render_template('login.html', form=form)
 
 
