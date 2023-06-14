@@ -368,6 +368,7 @@ def edit_feedback(feedback_id):
 
 # Route to serve the uploaded files
 @main.route('/uploads/<filename>', methods=['GET'])
+@login_required
 def files_uploaded(filename):
 
     with app.app_context():

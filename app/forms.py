@@ -1,3 +1,4 @@
+import re
 from flask_wtf import FlaskForm, RecaptchaField
 from wtforms import StringField, PasswordField, TextAreaField, FileField, SubmitField, IntegerField
 from wtforms.validators import DataRequired, Email, EqualTo, Length
@@ -8,6 +9,11 @@ class LoginForm(FlaskForm):
     password = PasswordField('Password', validators=[DataRequired()])
     captcha = RecaptchaField()
     submit = SubmitField('Login')
+
+    def validate_username(self, field):
+        if not re.match(r'^[a-zA-Z0-9]+$', field.data):
+            raise ValidationError('Username must contain only letters and numbers.')
+
 
 from wtforms import StringField, PasswordField, SubmitField
 from wtforms.validators import DataRequired, Email, EqualTo, Length, ValidationError
@@ -32,6 +38,10 @@ class RegisterForm(FlaskForm):
         # Check if confirm_password matches the password
         if confirm_password.data != self.password.data:
             raise ValidationError('Passwords do not match.')
+        
+    def validate_username(self, field):
+        if not re.match(r'^[a-zA-Z0-9]+$', field.data):
+            raise ValidationError('Username must contain only letters and numbers.')
 
 
 
