@@ -19,8 +19,8 @@ class Config:
     MAIL_USE_SSL=False
 
     # Limiter Configuration
-    RATELIMIT_DEFAULT = "100 per day"
-    RATELIMIT_HEADERS_ENABLED = True
+    # RATELIMIT_DEFAULT = "100 per day"
+    # RATELIMIT_HEADERS_ENABLED = True
 
     # reCAPTCHA configuration
     RECAPTCHA_PUBLIC_KEY = os.getenv('RECAPTCHA_PUBLIC_KEY')

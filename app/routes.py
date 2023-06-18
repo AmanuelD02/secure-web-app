@@ -168,13 +168,16 @@ def verify_email(token):
 
 
 
+# @limiter.limit("5/minute")  # Rate limit: 5 requests per minute
 @main.route('/login', methods=['GET', 'POST'])
-@limiter.limit("5/minute")  # Rate limit: 5 requests per minute
 def login():
     if current_user.is_authenticated:
         return redirect(url_for('main.dashboard'))
     
     form = LoginForm()
+    if request.method == 'GET':
+        return render_template('login.html', form=form)
+    
     if form.validate_on_submit():
         username = form.username.data
         password = form.password.data
@@ -197,9 +200,15 @@ def login():
         else:
             flash('Invalid username or password. Please try again!', 'warning')
             logger.error('Invalid credentials entered for user: {}'.format(username))
+            
         return redirect(url_for('main.login'))
+
+    if form.errors:
+        for key, val in form.errors.items():
+            for err in val:
+                flash(err, 'danger')
     
-    return render_template('login.html', form=form)
+    return redirect(url_for('main.login'))
 
 
 
@@ -254,8 +263,8 @@ def toggle_user_status(user_id):
 
 
 # Route for submitting feedback
+# @limiter.limit("2000/minute")  # Rate limit: maximum 2 requests per minute
 @main.route('/feedback', methods=['GET', 'POST'])
-@limiter.limit("2000/minute")  # Rate limit: maximum 2 requests per minute
 @login_required
 def feedback():
     if not current_user.is_active or not current_user.is_verified:
@@ -406,8 +415,8 @@ def delete_feedback(feedback_id):
 
 
 
+# @limiter.limit("5/minute")
 @main.route('/admin_login', methods=['POST', 'GET' ])
-@limiter.limit("5/minute")
 def honeypot():
     form = LoginForm()
     if form.validate_on_submit():
