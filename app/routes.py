@@ -192,6 +192,7 @@ def otp():
         user = User.query.filter_by(username=current_user.username).first()
         if user.pincode == otp:
             user.otp_verified = True
+            user.pincode = None
             user.save()
             flash('OTP verified successfully. You can now log in.', 'success')
             return redirect(url_for('main.login'))
