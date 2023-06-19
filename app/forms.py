@@ -57,6 +57,9 @@ class FeedbackForm(FlaskForm):
             raise ValidationError('File size exceeds the allowed limit.')
 
 
+class OTPForm(FlaskForm):
+    otp = IntegerField('One Time Password', validators=[DataRequired()])
+    submit = SubmitField('Verify')
 
 class UserToggleForm(FlaskForm):
     user_id = IntegerField('user_id',validators=[DataRequired()])

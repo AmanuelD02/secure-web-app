@@ -2,6 +2,7 @@ import copy
 from io import BytesIO
 import os
 from functools import wraps
+import random
 import secrets
 import clamd  
 import uuid
@@ -19,7 +20,7 @@ import virustotal_python
 from werkzeug.utils import secure_filename
 
 from app import db, limiter, logger, mail, login_manager
-from app.forms import RegisterForm, LoginForm, FeedbackForm, UserToggleForm
+from app.forms import OTPForm, RegisterForm, LoginForm, FeedbackForm, UserToggleForm
 from app.models import Honeypot, User, Feedback
 
 
@@ -56,7 +57,14 @@ def admin_required(f):
         return f(*args, **kwargs)
     return decorated_function
 
-
+def otp_required(f):
+    @wraps(f)
+    def decorated_function(*args, **kwargs):
+        if not current_user.otp_verified:
+            flash('You are not authorized to access this page.', 'danger')
+            return render_template('error.html', error_code=500), 500
+        return f(*args, **kwargs)
+    return decorated_function
 
 # Function to generate a verification token
 def generate_verification_token(username):
@@ -76,6 +84,13 @@ def send_verification_email(email, verification_link):
     # mail.send_message(recipients=[email], body=txt, subject='Account Verification',sender= os.getenv('MAIL_USERNAME'))
     mail.send(msg)
 
+
+def send_OTP(user):
+    user.pincode = random.randint(100000, 999999)
+    user.save()
+    msg = Message('OTP', recipients=[user.email], sender= os.getenv('MAIL_DEFAULT_SENDER'))
+    msg.body = f'Your OTP is {user.pincode}'
+    mail.send(msg)
 
 
 
@@ -164,6 +179,32 @@ def verify_email(token):
     flash('Account verified successfully. You can now log in.', 'success')
     return redirect(url_for('main.login'))
 
+@login_required
+@main.route('/otp', methods=['GET', 'POST'])
+def otp():
+    if current_user.is_authenticated and current_user.otp_verified:
+        return redirect(url_for('main.dashboard'))
+    form = OTPForm()
+    if request.method == 'GET':
+        return render_template('otp.html', form=form)
+    if form.validate_on_submit():
+        otp = form.otp.data
+        user = User.query.filter_by(username=current_user.username).first()
+        if user.pincode == otp:
+            user.otp_verified = True
+            user.save()
+            flash('OTP verified successfully. You can now log in.', 'success')
+            return redirect(url_for('main.login'))
+        
+        flash('Incorrect Pin Code', 'danger')
+
+    else:
+        errors = form.errors
+        for key, val in errors.items():
+            for err in val:
+                flash(err, 'danger')
+    return redirect(url_for('main.otp'))
+    
 
 
 # @limiter.limit("5/minute")  # Rate limit: 5 requests per minute
@@ -181,6 +222,9 @@ def login():
         password = form.password.data
 
         user = User.query.filter_by(username=username).first()
+       
+
+            
         if user and not user.is_verified:
             flash('Please Verify Email', 'warning')
 
@@ -190,11 +234,12 @@ def login():
     
         elif user and user.check_password(password):
             login_user(user)
+
             
-            flash('Login successful!', 'success')
+            flash('OTP sent!', 'success')
             logger.info('User logged in: {}'.format(username))
-            
-            return redirect(url_for('main.dashboard'))
+            send_OTP(user)
+            return redirect(url_for('main.otp'))
         else:
             flash('Invalid username or password. Please try again!', 'warning')
             logger.error('Invalid credentials entered for user: {}'.format(username))
@@ -214,13 +259,15 @@ def login():
 @login_required
 def logout():
     logger.info('User logged out: {}'.format(current_user.username))
-    
+    current_user.otp_verified = False
+    current_user.save()
     logout_user()
     flash('You have been logged out.', 'info')
     return redirect(url_for('main.index'))
 
 @main.route('/dashboard')
 @login_required
+@otp_required
 def dashboard():
     
     if current_user.is_admin:
@@ -234,6 +281,7 @@ def dashboard():
 
 @main.route('/secret')
 @login_required
+@otp_required
 @admin_required
 def admin():
     members = User.query.all()
@@ -244,6 +292,7 @@ def admin():
 # Route for enabling/disabling user accounts (admin only)
 @main.route('/admin/user/<int:user_id>/toggle_status', methods=['POST'])
 @login_required
+@otp_required
 def toggle_user_status(user_id):
     if not current_user.is_admin:
         abort(403)  # Only admin can access this route
@@ -264,6 +313,7 @@ def toggle_user_status(user_id):
 # @limiter.limit("2000/minute")  # Rate limit: maximum 2 requests per minute
 @main.route('/feedback', methods=['GET', 'POST'])
 @login_required
+@otp_required
 def feedback():
     if not current_user.is_active or not current_user.is_verified:
         abort(403)  # User is not allowed to submit feedback
@@ -328,6 +378,7 @@ def feedback():
 # Route for editing feedback
 @main.route('/feedback/edit/<int:feedback_id>', methods=['GET', 'POST'])
 @login_required
+@otp_required
 def edit_feedback(feedback_id):
     feedback = Feedback.query.get_or_404(feedback_id)
 
@@ -388,6 +439,7 @@ def edit_feedback(feedback_id):
 # Route to serve the uploaded files
 @main.route('/uploads/<filename>', methods=['GET'])
 @login_required
+@otp_required
 def files_uploaded(filename):
 
     with app.app_context():
@@ -398,6 +450,7 @@ def files_uploaded(filename):
 
 @main.route('/feedback/delete/<int:feedback_id>', methods=['POST', ])
 @login_required
+@otp_required
 def delete_feedback(feedback_id):
     feedback = Feedback.query.get_or_404(feedback_id)
 
@@ -457,6 +510,7 @@ def honeypot():
 
 @main.route('/honeypots', methods=['GET', ])
 @login_required
+@otp_required
 @admin_required
 def view_honeypot():
     honeypots = Honeypot.query.all()
