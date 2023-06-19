@@ -1,9 +1,12 @@
 import copy
+from io import BytesIO
 import os
 from functools import wraps
 import secrets
 import clamd  
 import uuid
+import magic
+
 
 from flask import current_app as app, request, send_from_directory
 from flask import abort, Blueprint, render_template, redirect, url_for, flash
@@ -12,6 +15,7 @@ from flask_limiter.util import get_remote_address
 from flask_login import login_user, logout_user, current_user, login_required
 from flask_mail import Message
 from itsdangerous import BadSignature, SignatureExpired, URLSafeTimedSerializer
+import virustotal_python
 from werkzeug.utils import secure_filename
 
 from app import db, limiter, logger, mail, login_manager
@@ -30,19 +34,13 @@ def load_user(user_id):
 clamd_socket = '/var/run/clamav/clamd.ctl'  # Adjust the socket path based on your ClamAV configuration
 clamav = clamd.ClamdUnixSocket()
 
-# Scan file for viruses using ClamAV
-def scan_file(file):
-    try:
-        # scan stream
-        scan_results = clamav.instream(file)
-        res = scan_results['stream'][0] == 'OK'
-        
-        return res
-        
-    except Exception as e:
-        logger.error('Error scanning file: {}'.format(str(e)))
-        return False
-
+# Initialize VirusTotal scanner and API key
+def scan_file_virustotal(file_data):
+    with virustotal_python.Virustotal(os.getenv('VIRUS_TOTAL')) as vtotal:
+        # Create dictionary containing the file to send for multipart encoding upload
+        files = {"file": ("file.pdf", file_data)}
+        resp = vtotal.request("files", files=files, method="POST")
+        return resp.json()
 # Create an instance of URLSafeTimedSerializer
 
 # Rate Limiter
@@ -276,13 +274,25 @@ def feedback():
         file = form.file.data
         if file:
 
-            # Scan file for viruses
-            # res = scan_file(file)
-            # if res == False:
-            #     flash('File contains viruses or malicious content.', 'danger')
+                        # Check the MIME type of the file using python-magic
+            mime = magic.Magic(mime=True)
+            mimetype = mime.from_buffer(file.read())
+            if mimetype != 'application/pdf':
+                flash("File is not a valid PDF", 'danger')
+                return redirect(url_for('main.dashboard'))
+            file.seek(0)
+
+            
+            # # Save the file data to a BytesIO object
+            # file_data = BytesIO(file.read())
+            # # Scan the file for viruses
+            # scan_results = scan_file_virustotal(file_data)
+
+
+            #     # Check the response from the VirusTotal API
+            # if scan_results['data']['attributes']['last_analysis_stats']['malicious'] > 0:
+            #     flash('Malicious File Detected', 'danger')
             #     return redirect(url_for('main.dashboard'))
-
-
 
             # Save the file
             with app.app_context():
@@ -334,16 +344,16 @@ def edit_feedback(feedback_id):
         file = form.file.data
         if file:
 
-            # Scan file for viruses
-            # if scan_file(file):
-            #     flash('File contains viruses or malicious content.', 'danger')
-            #     return redirect(url_for('main.edit_feedback', feedback_id=feedback_id))
-            
-
-
 
             # Delete the old file, if any
             if feedback.file:
+                mime = magic.Magic(mime=True)
+                mimetype = mime.from_buffer(file.read())
+                if mimetype != 'application/pdf':
+                    flash("File is not a valid PDF", 'danger')
+                    return redirect(url_for('main.dashboard'))
+                file.seek(0)
+                
                 with app.app_context():
                     old_file_path = os.path.join(app.config['UPLOAD_FOLDER'], feedback.file)
                     if os.path.exists(old_file_path):
